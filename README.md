@@ -95,7 +95,7 @@ mvn -version
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/SEU_USUARIO/desafio_automacao_java.git
+git clone https://github.com/igorigr/desafio_automacao_java.git
 cd desafio_automacao_java
 ```
 
