@@ -40,21 +40,28 @@ Projeto de automação de testes desenvolvido em **Java 17** com **Selenium WebD
 desafio_automacao_java/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                        # Pipeline GitHub Actions
+│       └── ci.yml                          # Pipeline GitHub Actions (API + Web + Performance)
+├── performance/                            # Testes de Performance (JMeter)
+│   ├── blazedemo-load-test.jmx             # Teste de Carga — 300 threads | 250 req/s
+│   ├── blazedemo-spike-test.jmx            # Teste de Pico — 50→600 threads em 10s
+│   ├── results/
+│   │   ├── load-test/                      # Resultados gerados (ignorados pelo git)
+│   │   └── spike-test/                     # Resultados gerados (ignorados pelo git)
+│   └── README.md                           # Documentação dos testes de performance
 ├── src/
 │   └── test/
 │       ├── java/
 │       │   └── com/desafio/
 │       │       ├── config/
-│       │       │   ├── ConfigReader.java  # Leitura de configurações
-│       │       │   └── DriverFactory.java # Gerenciamento do WebDriver
-│       │       ├── pages/                 # Page Objects (POM)
+│       │       │   ├── ConfigReader.java    # Leitura de configurações
+│       │       │   └── DriverFactory.java   # Gerenciamento do WebDriver
+│       │       ├── pages/                   # Page Objects (POM)
 │       │       │   ├── BasePage.java
 │       │       │   ├── HomePage.java
 │       │       │   ├── SearchResultsPage.java
 │       │       │   └── ArticlePage.java
 │       │       ├── web/
-│       │       │   └── BlogSearchTest.java # 12 cenários Web
+│       │       │   └── BlogSearchTest.java  # 12 cenários Web
 │       │       └── api/
 │       │           ├── BaseApiTest.java
 │       │           ├── BreedsListTest.java  # 8 cenários
@@ -69,6 +76,7 @@ desafio_automacao_java/
 │               ├── breed-images-schema.json
 │               ├── random-image-schema.json
 │               └── error-schema.json
+├── .gitignore
 └── pom.xml
 ```
 
