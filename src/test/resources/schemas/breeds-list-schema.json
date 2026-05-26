@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Breeds List Response",
+  "type": "object",
+  "required": ["message", "status"],
+  "properties": {
+    "message": {
+      "type": "object",
+      "description": "Map of breed names to their sub-breeds list",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success"],
+      "description": "Response status indicator"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "API Error Response",
+  "type": "object",
+  "required": ["message", "status"],
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "Error message describing what went wrong"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["error"],
+      "description": "Response status indicator"
+    },
+    "code": {
+      "type": "integer",
+      "description": "HTTP error code"
+    }
+  },
+  "additionalProperties": false
+}

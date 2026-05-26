@@ -1,0 +1,228 @@
+name: CI - Automated Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  api-tests:
+    name: API Tests (RestAssured)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run API Tests
+        run: mvn test -P api -Dheadless=true --no-transfer-progress
+
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-api
+          path: target/allure-results
+          retention-days: 7
+
+      - name: Generate Allure Report
+        if: always()
+        run: mvn allure:report --no-transfer-progress
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-api
+          path: target/site/allure-maven-plugin
+          retention-days: 7
+
+  web-tests:
+    name: Web Tests (Selenium)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install Google Chrome
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Run Web Tests (Headless)
+        run: mvn test -P web -Dheadless=true -Dbrowser=chrome --no-transfer-progress
+
+      - name: Upload Screenshots on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-web
+          path: target/screenshots
+          retention-days: 7
+
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-web
+          path: target/allure-results
+          retention-days: 7
+
+      - name: Generate Allure Report
+        if: always()
+        run: mvn allure:report --no-transfer-progress
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-web
+          path: target/site/allure-maven-plugin
+          retention-days: 7
+
+  performance-tests:
+    name: Performance Tests (JMeter)
+    runs-on: ubuntu-latest
+    # Roda apenas em push/PR para main|master, ou manualmente.
+    # Evita custo de execução em branches de feature com cada push.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (necessário para geração de relatório Allure)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Apache JMeter 5.6.3
+        run: |
+          wget -q https://downloads.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz \
+            -O /tmp/jmeter.tgz
+          tar -xzf /tmp/jmeter.tgz -C /opt
+          echo "/opt/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
+
+      - name: Verify JMeter installation
+        run: jmeter --version
+
+      - name: Create results directories
+        run: |
+          mkdir -p performance/results/load-test/html-report
+          mkdir -p performance/results/spike-test/html-report
+
+      - name: Run Load Test
+        # Parâmetros reduzidos para CI: 50 threads, 30s ramp-up, 60s duração
+        # Para execução completa (250 req/s) ajuste: -Jthreads=300 -Jramp_up=120 -Jduration=300
+        run: |
+          jmeter -n \
+            -t performance/blazedemo-load-test.jmx \
+            -l performance/results/load-test/results.jtl \
+            -e -o performance/results/load-test/html-report \
+            -Jthreads=50 \
+            -Jramp_up=30 \
+            -Jduration=60 \
+            -JTARGET_THROUGHPUT=3000
+        continue-on-error: true
+
+      - name: Run Spike Test
+        run: |
+          jmeter -n \
+            -t performance/blazedemo-spike-test.jmx \
+            -l performance/results/spike-test/results.jtl \
+            -e -o performance/results/spike-test/html-report
+        continue-on-error: true
+
+      - name: Check Load Test error rate
+        run: |
+          if [ -f performance/results/load-test/results.jtl ]; then
+            TOTAL=$(grep -c "^[^t]" performance/results/load-test/results.jtl || echo 0)
+            ERRORS=$(grep -v "^timeStamp" performance/results/load-test/results.jtl | awk -F',' '$8 == "false"' | wc -l || echo 0)
+            echo "Total samples: $TOTAL | Errors: $ERRORS"
+            if [ "$TOTAL" -gt 0 ]; then
+              ERROR_RATE=$(echo "scale=2; $ERRORS * 100 / $TOTAL" | bc)
+              echo "Error rate: ${ERROR_RATE}%"
+              if (( $(echo "$ERROR_RATE > 5" | bc -l) )); then
+                echo "::warning::Load test error rate (${ERROR_RATE}%) exceeds 5% threshold"
+              fi
+            fi
+          fi
+
+      - name: Upload Load Test HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-load-test-report
+          path: performance/results/load-test/html-report
+          retention-days: 14
+
+      - name: Upload Load Test JTL (raw results)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-load-test-jtl
+          path: performance/results/load-test/results.jtl
+          retention-days: 7
+
+      - name: Upload Spike Test HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-spike-test-report
+          path: performance/results/spike-test/html-report
+          retention-days: 14
+
+      - name: Upload Spike Test JTL (raw results)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-spike-test-jtl
+          path: performance/results/spike-test/results.jtl
+          retention-days: 7
+
+  full-test-suite:
+    name: Full Test Suite
+    runs-on: ubuntu-latest
+    needs: [ api-tests, web-tests, performance-tests ]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          echo "API Tests:         ${{ needs.api-tests.result }}"
+          echo "Web Tests:         ${{ needs.web-tests.result }}"
+          echo "Performance Tests: ${{ needs.performance-tests.result }}"
+
+          if [ "${{ needs.api-tests.result }}" == "failure" ] || \
+             [ "${{ needs.web-tests.result }}" == "failure" ]; then
+            echo "One or more functional test suites failed!"
+            exit 1
+          fi
+
+          echo "All functional test suites passed!"
+          if [ "${{ needs.performance-tests.result }}" == "skipped" ]; then
+            echo "Performance tests were skipped (branch-filtered)."
+          fi
