@@ -23,28 +23,29 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Install Allure CLI 2.27.0
+        run: |
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz \
+            -O /tmp/allure.tgz
+          tar -xzf /tmp/allure.tgz -C /opt
+          echo "/opt/allure-2.27.0/bin" >> $GITHUB_PATH
+
       - name: Run API Tests
-        run: mvn test -P api -Dheadless=true --no-transfer-progress
+        run: mvn test -P api --no-transfer-progress
 
-      - name: Upload Allure Results
+      - name: Generate Allure Single-File Report
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-results-api
-          path: target/allure-results
-          retention-days: 7
+        run: |
+          allure generate --single-file target/allure-results \
+            -o target/allure-single-api --clean
 
-      - name: Generate Allure Report
-        if: always()
-        run: mvn allure:report --no-transfer-progress
-
-      - name: Upload Allure Report
+      - name: Upload Allure Single-File Report (API)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report-api
-          path: target/site/allure-maven-plugin
-          retention-days: 7
+          path: target/allure-single-api/index.html
+          retention-days: 14
 
   web-tests:
     name: Web Tests (Selenium)
@@ -60,6 +61,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
+
+      - name: Install Allure CLI 2.27.0
+        run: |
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz \
+            -O /tmp/allure.tgz
+          tar -xzf /tmp/allure.tgz -C /opt
+          echo "/opt/allure-2.27.0/bin" >> $GITHUB_PATH
 
       - name: Install Google Chrome
         run: |
@@ -79,25 +87,19 @@ jobs:
           path: target/screenshots
           retention-days: 7
 
-      - name: Upload Allure Results
+      - name: Generate Allure Single-File Report
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-results-web
-          path: target/allure-results
-          retention-days: 7
+        run: |
+          allure generate --single-file target/allure-results \
+            -o target/allure-single-web --clean
 
-      - name: Generate Allure Report
-        if: always()
-        run: mvn allure:report --no-transfer-progress
-
-      - name: Upload Allure Report
+      - name: Upload Allure Single-File Report (Web)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report-web
-          path: target/site/allure-maven-plugin
-          retention-days: 7
+          path: target/allure-single-web/index.html
+          retention-days: 14
 
   performance-tests:
     name: Performance Tests (JMeter)

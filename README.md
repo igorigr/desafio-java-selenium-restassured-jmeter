@@ -182,14 +182,19 @@ sudo apt-get install allure
 ```
 
 ```bash
-# Gerar o relatório
-mvn allure:report
+# Opção 1 — Arquivo HTML único (sem necessidade de servidor)
+# Gera um único index.html com tudo embutido — ideal para compartilhar e abrir direto no browser
+allure generate --single-file target/allure-results -o target/allure-single --clean
+# Abrir:
+open target/allure-single/index.html        # macOS
+start target/allure-single/index.html       # Windows
+xdg-open target/allure-single/index.html   # Linux
 
-# Servir o relatório no browser
+# Opção 2 — Relatório completo com servidor local
 mvn allure:serve
 ```
 
-O relatório será aberto automaticamente no browser com detalhes de cada teste, incluindo:
+O relatório contém:
 - Status de cada cenário (passou/falhou)
 - Tempo de execução
 - Capturas de tela em caso de falha (testes Web)
